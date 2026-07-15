@@ -1,0 +1,10 @@
+pandas>=2.2
+duckdb>=1.0
+great_expectations>=1.0
+scikit-learn>=1.4
+joblib>=1.3
+pyarrow>=15.0
+pytest>=8.0
+requests>=2.31
+python-dotenv>=1.0
+mlflow>=2.14
