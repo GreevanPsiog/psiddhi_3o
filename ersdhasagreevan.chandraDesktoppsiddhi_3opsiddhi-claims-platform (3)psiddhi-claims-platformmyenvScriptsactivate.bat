@@ -1,0 +1,31 @@
+[33mcommit 6960440ef5eea1d18ff0f455872196bcc6eaae37[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32malpha[m[33m, [m[1;31morigin/alpha[m[33m)[m
+Author: GreevanPsiog <dhasagreevan.chandrasekar@psiog.com>
+Date:   Wed Jul 15 09:28:42 2026 +0530
+
+    Ai: Added Ask.py to ask any queries to ai
+
+[33mcommit 34a7980b3d333f2f28d306032b28e243416ba70f[m
+Author: GreevanPsiog <dhasagreevan.chandrasekar@psiog.com>
+Date:   Wed Jul 15 06:14:42 2026 +0530
+
+    Readme: Update readme file
+
+[33mcommit 5ea2b5f2208a795e0bb81563115faa18cf9e4626[m[33m ([m[1;31morigin/beta[m[33m, [m[1;32mmain[m[33m, [m[1;32mbeta[m[33m)[m
+Merge: 9da8537 c3c27b2
+Author: GreevanPsiog <dhasagreevan.chandrasekar@psiog.com>
+Date:   Wed Jul 15 05:56:52 2026 +0530
+
+    Merge branch 'main' of https://github.com/GreevanPsiog/psiddhi_3o
+    Uploading the Project with Working 70 %
+
+[33mcommit c3c27b23014ec7caa9e020a4ccd3421594a6ffff[m[33m ([m[1;31morigin/main[m[33m)[m
+Author: GreevanPsiog <dhasagreevan.chandrasekar@psiog.com>
+Date:   Wed Jul 15 05:53:38 2026 +0530
+
+    Initial commit
+
+[33mcommit 9da8537f4ce58b9fd6f9995843a3ecbe4601e06b[m
+Author: GreevanPsiog <dhasagreevan.chandrasekar@psiog.com>
+Date:   Wed Jul 15 05:48:25 2026 +0530
+
+    Midterm: Completing with Midterm Review

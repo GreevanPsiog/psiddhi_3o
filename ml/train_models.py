@@ -13,9 +13,13 @@ can be browsed and compared via `mlflow ui --backend-store-uri sqlite:///mlruns.
 Run standalone:
     python ml/train_models.py
 """
-
+import os
 import json
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv("ml/.env")  # for DATABRICKS_HOST and DATABRICKS_TOKEN
+print(os.environ.get("DATABRICKS_HOST"))
+print(bool(os.environ.get("DATABRICKS_TOKEN")))
 
 import joblib
 import mlflow
@@ -35,8 +39,11 @@ MODEL_DIR = ROOT / "ml" / "artifacts"
 # Local MLflow tracking store — a single SQLite file inside the project, so
 # `mlflow ui --backend-store-uri sqlite:///mlruns.db` can browse it with no
 # server setup. (Plain file-store backend is deprecated in newer MLflow.)
-mlflow.set_tracking_uri(f"sqlite:///{ROOT / 'mlruns.db'}")
-mlflow.set_experiment("psiddhi-claims-analytics")
+# mlflow.set_tracking_uri(f"sqlite:///{ROOT / 'mlruns.db'}")
+# mlflow.set_experiment("psiddhi-claims-analytics")
+
+mlflow.set_tracking_uri("databricks")
+mlflow.set_experiment("/Users/greevanpsiog@gmail.com/psiddhi-claims-analytics")
 
 
 def load_clean():
