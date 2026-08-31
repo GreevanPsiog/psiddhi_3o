@@ -26,8 +26,7 @@ def run():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     DUCKDB_FILE = ROOT / "data" / "analytics" / "claims_analytics.duckdb"
     con = duckdb.connect(str(DUCKDB_FILE))
-    con.execute(f"CREATE VIEW claims AS SELECT * FROM read_parquet('{CLEAN_PARQUET}')")
-
+    con.execute(f"CREATE OR REPLACE VIEW claims AS SELECT * FROM read_parquet('{CLEAN_PARQUET}')")
     # --- PMPM: total billed cost per member per month ---
     pmpm = con.execute("""
         SELECT
