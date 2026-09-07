@@ -19,12 +19,14 @@ ROOT = Path(__file__).resolve().parent.parent
 CLEAN_PARQUET = ROOT / "data" / "clean" / "claims_clean.parquet"
 OUT_DIR = ROOT / "data" / "analytics"
 
+DUCKDB_FILE = ROOT / "data" / "analytics" / "claims_analytics.duckdb"
+con = duckdb.connect(str(DUCKDB_FILE))
 
 def run():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect()
-    con.execute(f"CREATE VIEW claims AS SELECT * FROM read_parquet('{CLEAN_PARQUET}')")
-
+    DUCKDB_FILE = ROOT / "data" / "analytics" / "claims_analytics.duckdb"
+    con = duckdb.connect(str(DUCKDB_FILE))
+    con.execute(f"CREATE OR REPLACE VIEW claims AS SELECT * FROM read_parquet('{CLEAN_PARQUET}')")
     # --- PMPM: total billed cost per member per month ---
     pmpm = con.execute("""
         SELECT
@@ -37,6 +39,7 @@ def run():
         GROUP BY 1
         ORDER BY 1
     """).df()
+    con.execute("CREATE OR REPLACE TABLE pmpm_trend AS SELECT * FROM pmpm")
 
     # --- Utilization breakdown by claim category ---
     category_util = con.execute("""
@@ -50,6 +53,7 @@ def run():
         GROUP BY 1
         ORDER BY total_billed DESC
     """).df()
+    con.execute("CREATE OR REPLACE TABLE category_utilization AS SELECT * FROM category_util")
 
     # --- High-cost cohort: top 20 patients by total billed cost ---
     high_cost_cohort = con.execute("""
@@ -65,6 +69,7 @@ def run():
         ORDER BY total_billed DESC
         LIMIT 20
     """).df()
+    con.execute("CREATE OR REPLACE TABLE high_cost_cohort AS SELECT * FROM high_cost_cohort")
 
     # --- Monthly claim volume trend by category ---
     monthly_trend = con.execute("""
@@ -77,11 +82,14 @@ def run():
         GROUP BY 1, 2
         ORDER BY 1, 2
     """).df()
+    con.execute("CREATE OR REPLACE TABLE monthly_trend AS SELECT * FROM monthly_trend")
 
     pmpm.to_csv(OUT_DIR / "pmpm_trend.csv", index=False)
     category_util.to_csv(OUT_DIR / "category_utilization.csv", index=False)
     high_cost_cohort.to_csv(OUT_DIR / "high_cost_cohort.csv", index=False)
     monthly_trend.to_csv(OUT_DIR / "monthly_trend.csv", index=False)
+
+    con.close()
 
     print("=== DuckDB analytics summary ===")
     print(f"Months of PMPM data: {len(pmpm)}")
@@ -93,6 +101,8 @@ def run():
     print()
     print("Top 5 high-cost patients:")
     print(high_cost_cohort.head(5).to_string(index=False))
+    print()
+    print(f"Persisted DuckDB file: {DUCKDB_FILE}")
 
     return {
         "pmpm": pmpm,

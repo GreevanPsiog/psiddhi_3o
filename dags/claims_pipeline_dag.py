@@ -16,8 +16,8 @@ from pathlib import Path
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
+import os
+PROJECT_ROOT = Path(os.environ.get("PROJECT_ROOT_IN_CONTAINER", "/opt/airflow/project"))
 
 def _run_script(relative_path: str, extra_args: list[str] | None = None) -> None:
     cmd = [sys.executable, str(PROJECT_ROOT / relative_path)] + (extra_args or [])
