@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   askAI,
   triggerDag,
@@ -7,6 +7,47 @@ import {
   type RunStatus,
   type DataFreshness,
 } from './api'
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return 'never'
+  const date = new Date(iso)
+  if (isNaN(date.getTime())) return iso
+  return date.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return ''
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const diffMin = Math.round(diffMs / 60000)
+  if (diffMin < 1) return 'just now'
+  if (diffMin < 60) return `${diffMin} min ago`
+  const diffHr = Math.round(diffMin / 60)
+  if (diffHr < 24) return `${diffHr} hr ago`
+  const diffDay = Math.round(diffHr / 24)
+  return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`
+}
+
+function renderFormattedAnswer(text: string): React.ReactNode[] {
+  const lines = text.split('\n')
+  return lines.map((line, i) => {
+    const parts = line.split(/(\*\*[^*]+\*\*)/g)
+    const rendered = parts.map((part, j) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={j}>{part.slice(2, -2)}</strong>
+      }
+      return part
+    })
+    return (
+      <span key={i}>
+        {rendered}
+        {i < lines.length - 1 && <br />}
+      </span>
+    )
+  })
+}
 
 function StateBadge({ state }: { state: string | null | undefined }) {
   const s = (state ?? 'unknown').toLowerCase()
@@ -55,7 +96,7 @@ function AskPanel() {
         </button>
       </div>
       {error && <p className="error">{error}</p>}
-      {answer && <p className="answer">{answer}</p>}
+      {answer && <p className="answer">{renderFormattedAnswer(answer)}</p>}
     </section>
   )
 }
@@ -162,11 +203,17 @@ function DataFreshnessPanel() {
         <>
           <p>
             Analytics last computed:{' '}
-            <strong>{freshness.duckdb_last_modified ?? 'never'}</strong>
+            <strong>{formatTimestamp(freshness.duckdb_last_modified)}</strong>
+            {freshness.duckdb_last_modified && (
+              <span className="muted small"> ({timeAgo(freshness.duckdb_last_modified)})</span>
+            )}
           </p>
           <p>
             Last narrative generated:{' '}
-            <strong>{freshness.narrative_last_generated ?? 'never'}</strong>
+            <strong>{formatTimestamp(freshness.narrative_last_generated)}</strong>
+            {freshness.narrative_last_generated && (
+              <span className="muted small"> ({timeAgo(freshness.narrative_last_generated)})</span>
+            )}
             {freshness.narrative_last_verdict && (
               <> — <StateBadge state={freshness.narrative_last_verdict} /></>
             )}
