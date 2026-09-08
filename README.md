@@ -1,5 +1,3 @@
-# psiddhi_3o
-S2-D-07 — Healthcare Claims Analytics Platform
 # Psiddhi Claims Platform
 
 Healthcare claims analytics platform built for IMPACT pSiddhi 3.0 (RFP S2-D-07,
@@ -8,11 +6,13 @@ them with quality gates, analyzes cost/utilization trends, runs ML models for
 cost prediction and utilization clustering, generates a fact-checked AI
 narrative, and orchestrates the whole thing with Airflow.
 
-**Status as of Week 10:** core pipeline (data quality, analytics, ML, AI
+**Status as of Final Term:** core pipeline (data quality, analytics, ML, AI
 narrative, orchestration) is built and verified end-to-end, with ML tracking
-now hosted on Databricks. Power BI dashboard is mid-build (blocked on an
-admin-rights step), tests and CI have not started — see
-[Known Gaps](#known-gaps-vs-approved-proposal) below.
+hosted on Databricks. The complete Power BI dashboard (all 3 tabs) is built
+and connected via the MotherDuck DuckDB connector. Automated tests and CI are
+in place and passing. Docker deployment is live on a GCP Compute Engine VM.
+See [Known Gaps](#known-gaps-vs-approved-proposal) below for the few
+remaining items.
 
 ## Architecture
 
@@ -73,9 +73,10 @@ walkthrough including expected output at each stage.
 ## Docker deployment on Google Cloud
 
 The complete platform is deployed as a Docker Compose stack on a private
-Google Compute Engine VM. This is preferred over putting the whole stack in a
-single Cloud Run container because Airflow, PostgreSQL, Redis, the FastAPI
-backend, and the frontend are separate services.
+Google Compute Engine VM (`instance-psiddhi-healthcare-analytics`). This is
+preferred over putting the whole stack in a single Cloud Run container because
+Airflow, PostgreSQL, Redis, the FastAPI backend, and the frontend are separate
+services.
 
 The production Compose overlay is
 [`docker-compose.prod.yaml`](./docker-compose.prod.yaml). It builds the
@@ -190,9 +191,19 @@ psiddhi-claims-platform/
 │   └── README.md                     # narrative module details
 ├── dags/
 │   └── claims_pipeline_dag.py       # Airflow DAG
-├── tests/                            # not yet started
-├── docs/                             # not yet started
-└── .github/workflows/                # not yet started
+├── tests/
+│   ├── conftest.py                   # shared fixtures, skip logic
+│   ├── test_data_quality.py          # raw dataset + GE gate integration
+│   ├── test_analytics.py             # DuckDB CSV + persisted .duckdb checks
+│   ├── test_ml_models.py             # R^2 > 0.6, silhouette > 0.3
+│   ├── test_narrative.py             # build_facts, dry-run
+│   ├── test_dag_integrity.py         # DAG structure (5 tasks, no cycles)
+│   ├── test_integration.py           # full pipeline rerun (opt-in)
+│   └── README.md                     # test docs, CI instructions
+├── pytest.ini
+├── .github/workflows/tests.yml      # CI on push/PR
+├── docs/                             # technical documentation
+└── README.md
 ```
 
 ## Dataset
@@ -221,27 +232,30 @@ Requires `ml/.env` with `DATABRICKS_HOST` and `DATABRICKS_TOKEN` — see
 `ml/.env.example`. View runs in the Databricks workspace under
 **Experiments → psiddhi-claims-analytics**.
 
-## DuckDB persistence (for Power BI ODBC)
+## DuckDB persistence (for Power BI)
 
 `analytics/duckdb_analytics.py` now connects to a persisted file
 (`data/analytics/claims_analytics.duckdb`) instead of an in-memory database,
 and materializes each result as a real table (`pmpm_trend`,
 `category_utilization`, `high_cost_cohort`, `monthly_trend`) inside it. This
-is what the DuckDB ODBC driver connects to from Power BI, matching the
-approved proposal's "connect to DuckDB via ODBC" requirement.
+is what the Power BI connector (MotherDuck DuckDB Power Query) connects to,
+matching the approved proposal's "connect to DuckDB" requirement.
 
 ## Power BI
 
-**Status: blocked, pending Windows admin rights.** The DuckDB ODBC driver
-(`duckdb_odbc.dll` + `odbc_install.exe` from the
-[duckdb-odbc releases](https://github.com/duckdb/duckdb-odbc/releases)) must
-be registered system-wide in Windows' ODBC driver registry, which requires
-admin permission to install — this is a Windows-level restriction on all
-ODBC drivers, not specific to DuckDB. Once installed: create a System DSN
-pointing at `data/analytics/claims_analytics.duckdb`, then in Power BI
-Desktop use **Get Data → ODBC** and select that DSN. Two required dashboard
-views (Cost & Utilization Overview; High-Cost Cohort & ML Clustering) are
-planned once the connection is unblocked.
+**Status: Complete.** After an initial attempt via generic Windows ODBC
+proved unreliable (Power BI's Navigator could not enumerate tables in the
+DuckDB file), the project switched to the **MotherDuck DuckDB Power Query
+connector**, a purpose-built custom connector that correctly surfaces DuckDB's
+catalog/schema/table structure.
+
+The dashboard has **3 tabs fully built**:
+1. **Cost & Utilization Overview** – KPI cards, bar chart (by category), line chart (by month)
+2. **High Cost Cohort** – table, scatter plot, bar chart (top patients)
+3. **Utilization Clustering** – scatter plot (colored by cluster), pie chart (patient distribution), table
+
+All tables (`claims`, `pmpm_trend`, `category_utilization`, `high_cost_cohort`,
+`monthly_trend`, `utilization_clusters`) are loaded via the DuckDB connector.
 
 ## Airflow
 
