@@ -70,10 +70,104 @@ python -m narrative.generate_narrative --dry-run   # or without --dry-run once .
 See [`SETUP_AND_RUN_GUIDE.md`](./SETUP_AND_RUN_GUIDE.md) for a full step-by-step
 walkthrough including expected output at each stage.
 
+## Docker deployment on Google Cloud
+
+The complete platform is deployed as a Docker Compose stack on a private
+Google Compute Engine VM. This is preferred over putting the whole stack in a
+single Cloud Run container because Airflow, PostgreSQL, Redis, the FastAPI
+backend, and the frontend are separate services.
+
+The production Compose overlay is
+[`docker-compose.prod.yaml`](./docker-compose.prod.yaml). It builds the
+Airflow image from `Dockerfile`, the FastAPI backend from
+`webapp/backend/Dockerfile`, and serves the React frontend through Nginx from
+`webapp/frontend/Dockerfile`.
+
+### Compute Engine setup
+
+Create a Linux VM attached to your VPC. For the full stack, use at least
+2 vCPUs, 8 GB RAM, and a 30 GB persistent disk. A 4 vCPU/16 GB VM is
+recommended for ML training and Airflow. Prefer a VM without a public IP and
+use Identity-Aware Proxy (IAP), VPN, or an internal load balancer.
+
+Install Docker and clone the repository on the VM:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-plugin git openssl
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+
+git clone <repository-url> psiddhi-claims-platform
+cd psiddhi-claims-platform
+```
+
+Reconnect after adding the user to the Docker group.
+
+### Configure secrets
+
+Create a VM-local `.env` file and do not commit it:
+
+```bash
+openssl rand -base64 32
+nano .env
+chmod 600 .env
+```
+
+At minimum, configure:
+
+```dotenv
+AIRFLOW_UID=50000
+_AIRFLOW_WWW_USER_USERNAME=<strong-admin-username>
+_AIRFLOW_WWW_USER_PASSWORD=<strong-admin-password>
+FERNET_KEY=<generated-fernet-key>
+AIRFLOW__API_AUTH__JWT_SECRET=<random-secret>
+CORS_ALLOWED_ORIGINS=
+```
+
+Add the Databricks and LLM provider variables required by the pipeline.
+`CORS_ALLOWED_ORIGINS` may remain empty because the frontend Nginx container
+proxies `/api` requests to the backend over the internal Compose network.
+
+### Start the stack
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up airflow-init
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml ps
+```
+
+Check service logs:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml \
+  logs -f airflow-apiserver backend frontend
+```
+
+The frontend is bound to the VM's loopback interface on port `8081`, the
+backend on `8000`, and Airflow on `8080`. Do not expose these ports publicly.
+From an authorized workstation using IAP, create a tunnel:
+
+```bash
+gcloud compute ssh <vm-name> --zone <zone> --tunnel-through-iap \
+  -- -L 8081:127.0.0.1:8081
+```
+
+Then open `http://localhost:8081`. To access Airflow, use another tunnel with
+`-L 8080:127.0.0.1:8080`.
+
+For the complete firewall, persistence, backup, update, and cost guidance, see
+[`GCP_VPC_DEPLOYMENT.md`](./GCP_VPC_DEPLOYMENT.md).
+
 ## Project structure
 
 ```
 psiddhi-claims-platform/
+├── Dockerfile
+├── docker-compose.yaml
+├── docker-compose.prod.yaml
+├── GCP_VPC_DEPLOYMENT.md
 ├── requirements.txt
 ├── data/
 │   ├── synthetic_claims.csv         # patched dataset, 3,116 rows (see Dataset History)
@@ -163,10 +257,9 @@ This project is built incrementally and evidence-first — the sections below
 are disclosed honestly rather than glossed over, since the mid-term
 submission is evaluated against exactly this kind of gap:
 
-- **Docker** — named in the approved plan for local Airflow setup; Airflow
-  currently runs via a WSL2 venv, not a Docker container. Planned as a
-  follow-up (Weeks 11-13); would also permanently resolve the native-Windows
-  incompatibility.
+- **Docker** — implemented for the complete Compose deployment. Use Linux,
+  Compute Engine, WSL2, or Docker Desktop; native Windows Airflow execution is
+  not supported.
 - **Databricks** — resolved. MLflow tracking now runs on Databricks Free
   Edition instead of the local SQLite backend used earlier in development.
 - **Groq (ICD-10/CPT classification)** — not built. Claim categories

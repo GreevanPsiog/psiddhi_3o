@@ -1,0 +1,32 @@
+services:
+  airflow-apiserver:
+    ports:
+      - "127.0.0.1:${AIRFLOW_HOST_PORT:-8080}:8080"
+
+  backend:
+    build:
+      context: .
+      dockerfile: webapp/backend/Dockerfile
+    environment:
+      AIRFLOW_BASE_URL: http://airflow-apiserver:8080
+      AIRFLOW_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME}
+      AIRFLOW_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD}
+      AIRFLOW_DAG_ID: ${AIRFLOW_DAG_ID:-psiddhi_claims_pipeline}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+    volumes:
+      - .:/app
+    ports:
+      - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
+    depends_on:
+      airflow-apiserver:
+        condition: service_healthy
+    restart: always
+
+  frontend:
+    build:
+      context: ./webapp/frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-8081}:80"
+    depends_on:
+      - backend
+    restart: always
