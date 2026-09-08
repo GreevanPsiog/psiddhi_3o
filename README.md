@@ -265,11 +265,29 @@ with `{"dry_run": true}` config to exercise the full chain without an LLM call.
 Verified running end-to-end: all 5 tasks (ingest, validate_ge,
 duckdb_analytics, train_ml, generate_narrative) complete successfully.
 
-## Known gaps vs. approved proposal
+**Debugging note:** The DuckDB `CatalogException` (view already exists) was
+resolved by using `CREATE OR REPLACE VIEW` and explicitly closing the connection.
+The NVIDIA API error during narrative generation was resolved via retry logic.
+Both are documented in `docs/`.
 
-This project is built incrementally and evidence-first — the sections below
-are disclosed honestly rather than glossed over, since the mid-term
-submission is evaluated against exactly this kind of gap:
+## Testing & CI
+
+A comprehensive Pytest suite is included (see [`tests/README.md`](./tests/README.md)).
+It covers:
+
+- Data quality (dataset shape + GE gate integration)
+- Analytics (CSV + persisted `.duckdb` rerunnability)
+- ML (R² > 0.6, silhouette > 0.3 targets)
+- Narrative (build_facts, dry-run, LLM config errors)
+- DAG integrity (5 tasks, no cycles)
+- Integration (full pipeline rerun, opt-in)
+
+CI is wired via `.github/workflows/tests.yml` to run on every push/PR.
+ML training in CI requires Databricks secrets (`DATABRICKS_HOST` and
+`DATABRICKS_TOKEN`) added as GitHub repo secrets; if absent, the ML step is
+marked `continue-on-error: true` and ML-dependent tests skip gracefully.
+
+## Known gaps vs. approved proposal
 
 - **Docker** — implemented for the complete Compose deployment. Use Linux,
   Compute Engine, WSL2, or Docker Desktop; native Windows Airflow execution is
@@ -282,13 +300,12 @@ submission is evaluated against exactly this kind of gap:
 - **Gemini (narrative generation)** — code path exists in `llm_client.py`
   but has not been live-tested. Narrative generation is currently verified
   working via **NVIDIA NIM** only.
-- **Power BI via ODBC** — in progress, no longer a silent substitution.
-  DuckDB now persists to a real `.duckdb` file and the ODBC driver
-  install is underway, blocked on Windows admin rights (see Power BI
-  section above). CSV-based views are a fallback if the ODBC path isn't
-  unblocked in time.
-- **Pytest / GitHub Actions CI** — not yet started.
-- **Documentation package** — not yet started.
+- **Power BI** — resolved. All 3 tabs built using the MotherDuck DuckDB
+  Power Query connector (not generic ODBC, which proved unreliable).
+- **Pytest / GitHub Actions CI** — **resolved**. Full test suite + CI added.
+- **Documentation package** — **mostly resolved**. Technical documentation
+  (`docs/`) and test README are complete; a broader user manual/API reference
+  is still pending.
 
 See the mid-term submission document (Section 8: Deviations) for the full
 disclosure with reasoning for each.
